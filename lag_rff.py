@@ -23,7 +23,7 @@ def run_lag_rff(n=2, T=30, dt=0.001,
                 n_features=54, lr=500.0,
                 gamma_omega=None, gamma_b=None,
                 omega_max=5.0, x0_override=None,
-                noise_adaptive=False, gamma_0=0.01, kappa=100.0, ema_alpha=0.01):
+                noise_adaptive=False, gamma_0=0.01, kappa=750.0, ema_alpha=0.01):
     """
     RFF + Proposed Method (Lyapunov-Adaptive Geometry).
 
