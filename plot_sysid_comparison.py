@@ -69,28 +69,31 @@ if __name__ == "__main__":
     print("Saved fig1")
 
     # Figure 2: Summary table
-    print(f"\n{'Method':<20} {'n=2 Normal':<14} {'n=2 Shift':<14} "
-          f"{'n=6 Normal':<14} {'n=6 Shift':<14} "
-          f"{'n=2 Recovery':<15} {'n=6 Recovery':<15}")
-    print("-" * 106)
+    print("-" * 140)
+    print(f"{'Method':<20} {'n=2 Normal SS':<15} {'n=2 Shift SS':<15} {'n=2 Total IAE':<15} {'n=2 Recovery':<15} {'n=6 Normal SS':<15} {'n=6 Shift SS':<15} {'n=6 Total IAE':<15} {'n=6 Recovery':<15}")
+    print("-" * 140)
 
     for mname, (color, fkey) in METHODS.items():
-        vals = []
-        for dim_key in ['n2', 'n6']:
-            for cond_key in ['normal', 'shift']:
-                e = load(f"results/sysid/{dim_key}/{cond_key}/{fkey}_id_error.npy")
-                vals.append(f"{ss_mean(e):.4f}" if e is not None else "N/A")
-
+        e_n2_norm = load(f"results/sysid/n2/normal/{fkey}_id_error.npy")
         e_n2_shift = load(f"results/sysid/n2/shift/{fkey}_id_error.npy")
+        e_n6_norm = load(f"results/sysid/n6/normal/{fkey}_id_error.npy")
         e_n6_shift = load(f"results/sysid/n6/shift/{fkey}_id_error.npy")
+
+        ss_n2_norm = ss_mean(e_n2_norm) if e_n2_norm is not None else 0.0
+        ss_n2_shift = ss_mean(e_n2_shift) if e_n2_shift is not None else 0.0
+        ss_n6_norm = ss_mean(e_n6_norm) if e_n6_norm is not None else 0.0
+        ss_n6_shift = ss_mean(e_n6_shift) if e_n6_shift is not None else 0.0
+
         rec_n2 = recovery_time(e_n2_shift)
         rec_n6 = recovery_time(e_n6_shift)
+        
+        tot_n2 = np.sum(e_n2_shift[15000:]) * 0.001 if e_n2_shift is not None else 0.0
+        tot_n6 = np.sum(e_n6_shift[15000:]) * 0.001 if e_n6_shift is not None else 0.0
+
         rec_n2_str = f"{rec_n2:.2f}s" if rec_n2 else "Never"
         rec_n6_str = f"{rec_n6:.2f}s" if rec_n6 else "Never"
 
-        print(f"{mname:<20} {vals[0]:<14} {vals[1]:<14} "
-              f"{vals[2]:<14} {vals[3]:<14} "
-              f"{rec_n2_str:<15} {rec_n6_str:<15}")
+        print(f"{mname:<20} {ss_n2_norm:<15.4f} {ss_n2_shift:<15.4f} {tot_n2:<15.4f} {rec_n2_str:<15} {ss_n6_norm:<15.4f} {ss_n6_shift:<15.4f} {tot_n6:<15.4f} {rec_n6_str:<15}")
 
     # Figure 3: Recovery time bar chart
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
