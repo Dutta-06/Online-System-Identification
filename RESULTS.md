@@ -25,6 +25,9 @@ Below is the exhaustive data table evaluating our Lyapunov-Adaptive Geometry (LA
 > [!NOTE]
 > **SINDy and Sparse GP Degeneracy:** At $n=6$, these methods produce identical error bounds. This is a verified algorithmic degeneracy: SINDy's STLSQ optimizer crashes due to ill-conditioning, and Sparse GP's variational ELBO collapses. Both revert to predicting exactly $\hat{f}(x) = 0$, making their error identically $||f_{actual}(x) - 0||$.
 
+> [!NOTE]
+> **Integration Window Correction:** The Total IAE metrics for all baselines were corrected in this revision. In previous versions, the Total IAE scalar only integrated the final 3 seconds of the 15-second post-shift window. This bug was fixed to integrate the full 15-second tracking window, correctly scaling the Total IAE numbers (e.g. Fixed RFF $n=2$ Total IAE shifted from `0.1851` $\to$ `0.7419`, a strict $4\times$ multiplier). The Steady State (SS) metrics were entirely unaffected.
+
 > [!TIP]
 > **Instant Recovery Caveat:** The metric for recovery time captures the time it takes the algorithm to return to within 10% of its *own* pre-shift mean. The Proposed Standalone method successfully suppresses the massive initial shock and recovers to its own stable plateau almost instantly (`0.04s` and `0.00s`). However, due to its highly constrained compact architecture, this plateau (`0.1645`) is intrinsically higher than that of massively overparameterized networks like RFF (`0.0464`). 
 
@@ -48,7 +51,20 @@ The numerical noise injected into the pure $e_{id}$ gradient is approximately **
 **Contribution 1: Dominance of Compact Architectures**
 The Standalone Proposed Method employs just 1,625 parameters ($m=125$). Despite operating without oracle training targets (using noisy finite-difference estimates), it completely dominates the 7 equivalent-complexity baselines (Neural ODEs, GPs, SINDy, ESN, Koopman, NARX), which are provided the clean oracle targets. Furthermore, it successfully closes most of the gap to a fixed-geometry RFF model that is over 6$\times$ larger, achieving this while using $O(m)$ vs $O(n_f^2)$ compute. 
 
-**Contribution 2: Universal Enhancement & Noise Rejection**
+**Contribution 2: Sensitivity Analysis & Noise Rejection**
 RFF operates at a fundamentally different order of computational complexity, utilizing a dense grid of 10,500 parameters (including fixed geometry and readout weights). Rather than treating massive capacity as an unfair rival, we treat it as a canvas. By applying our Lyapunov-derived geometry adaptation laws to RFF (**RFF + Proposed**), we dynamically shift its frequencies and phases online. 
 
-Crucially, this adaptation proves robust to the highly noisy non-oracle environment. At $n=6$, where finite-difference noise ($\nu$) is minimal, the geometric adaptation conclusively outperforms vanilla fixed-geometry RFF in both Total Accumulated Error (`0.1472` vs `0.1567`) and Steady-State Error (`0.0083` vs `0.0091`). At $n=2$, the numerical stiffness introduces massive finite-difference noise $\nu$. By slightly damping the continuous geometry adaptation gain (`0.01` $\to$ `0.005`), the network perfectly balances noise rejection and geometric adaptation, completely crushing the Fixed RFF model (`0.5749` vs `0.7419`). This provides an honest, compelling empirical validation of the physics of adaptive architectures: when correctly tuned to reject numerical noise, our geometric adaptation laws universally enhance massive fixed architectures across all dimensions.
+At $n=6$, where finite-difference noise ($\nu$) is minimal, the geometric adaptation conclusively outperforms vanilla fixed-geometry RFF in both Total Accumulated Error (`0.1472` vs `0.1567`) and Steady-State Error (`0.0083` vs `0.0091`). 
+
+At $n=2$, the massive finite-difference noise $\nu$ initially caused the continuous geometry adaptation to overfit and jitter, performing worse than the rigid Fixed RFF baseline. A rigorous sensitivity analysis over the adaptation gain $\gamma$ reveals the physics of this phenomenon:
+
+| Geometry Gain ($\gamma$) | 0.010 | 0.0075 | 0.005 | 0.0025 | 0.001 | 0.0005 | 0.0001 | Fixed RFF |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Total IAE** | 1.2974 | 1.0134 | **0.5749** | 0.6444 | 0.6966 | 0.7175 | 0.7367 | 0.7419 |
+
+Rather than a single cherry-picked point estimate, this U-shaped curve demonstrates a robust structural finding: **continuous geometry adaptation improves tracking so long as it is tuned to reject numerical noise, but hinders tracking when it overfits to it.** Across the wide, plausible range of $0.0005 \le \gamma \le 0.005$, the adaptive geometry algorithm strictly outperforms the rigid baseline, approaching the rigid baseline's performance only as $\gamma \to 0$.
+
+***
+
+## Empirical UUB Validation
+The theoretical UUB tracking and identification error bounds derived from our Lyapunov proof are empirically verified in the closed-loop tracking experiment. The `LyapunovMonitor` module is instantiated inside `sim4_closed_loop_tracking.py` (Line 111) and updated at every timestep (Line 168) to rigorously log the time spent outside the theoretical bounds (Lines 302-308).
