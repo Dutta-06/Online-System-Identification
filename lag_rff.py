@@ -22,11 +22,30 @@ def run_lag_rff(n=2, T=30, dt=0.001,
                 use_shift=False, shift_time=15.0,
                 n_features=54, lr=500.0,
                 gamma_omega=None, gamma_b=None,
-                omega_max=5.0, x0_override=None):
-    if gamma_omega is None:
-        gamma_omega = 0.005 if n == 2 else 0.1
-    if gamma_b is None:
-        gamma_b = 0.005 if n == 2 else 0.1
+                omega_max=5.0, x0_override=None,
+                noise_adaptive=False, gamma_0=0.01, kappa=100.0, ema_alpha=0.01):
+    """
+    RFF + Proposed Method (Lyapunov-Adaptive Geometry).
+
+    Parameters
+    ----------
+    noise_adaptive : bool
+        If True, use noise-adaptive gain scheduling:
+        gamma_eff = gamma_0 / (1 + kappa * nu_hat)
+        where nu_hat is an EMA of consecutive x_dot_hat differences.
+        This overrides gamma_omega and gamma_b with a self-tuning gain.
+    gamma_0 : float
+        Base adaptation gain for noise-adaptive mode (before noise attenuation).
+    kappa : float
+        Noise sensitivity parameter. Higher = more aggressive damping.
+    ema_alpha : float
+        Exponential moving average smoothing factor for nu_hat estimation.
+    """
+    if not noise_adaptive:
+        if gamma_omega is None:
+            gamma_omega = 0.005 if n == 2 else 0.1
+        if gamma_b is None:
+            gamma_b = 0.005 if n == 2 else 0.1
 
     if n == 2:
         plant_fn = vanderpol
@@ -50,8 +69,13 @@ def run_lag_rff(n=2, T=30, dt=0.001,
     f_hat = np.zeros(n)
 
     id_history, t_history, ct_history = [], [], []
+    gamma_eff_history = []  # Track effective gain over time
 
-    tag = f"RFF+Proposed n={n}"
+    # Noise-adaptive state
+    nu_hat = 0.0            # EMA of FD noise magnitude
+    x_dot_hat_prev = None   # Previous x_dot_hat for consecutive differencing
+
+    tag = f"RFF+Proposed n={n}" + (" [adaptive-γ]" if noise_adaptive else "")
     for i in tqdm(range(N-1), desc=tag):
         t = t_eval[i]
 
@@ -72,6 +96,21 @@ def run_lag_rff(n=2, T=30, dt=0.001,
             x_dot_hat = np.zeros(n)
         else:
             x_dot_hat = (x - x_prev) / dt
+
+        # --- Noise-adaptive gain scheduling ---
+        if noise_adaptive:
+            if x_dot_hat_prev is not None and i > 1:
+                # Estimate FD noise from consecutive x_dot_hat jitter
+                nu_instantaneous = np.linalg.norm(x_dot_hat - x_dot_hat_prev)
+                nu_hat = (1 - ema_alpha) * nu_hat + ema_alpha * nu_instantaneous
+            gamma_eff = gamma_0 / (1.0 + kappa * nu_hat)
+            gamma_omega_eff = gamma_eff
+            gamma_b_eff = gamma_eff
+            gamma_eff_history.append(gamma_eff)
+            x_dot_hat_prev = x_dot_hat.copy()
+        else:
+            gamma_omega_eff = gamma_omega
+            gamma_b_eff = gamma_b
             
         # 2. Known dynamics (A*x in our system is 0, so just 0)
         f_known = np.zeros(n)
@@ -103,15 +142,15 @@ def run_lag_rff(n=2, T=30, dt=0.001,
         # 4. Geometry updates (Proposed method principles applied to RFF)
         We = W_out @ e_id  # (n_features,)
         
-        # omega update
-        raw_omega = gamma_omega * np.outer(dz_dphase * We, inp)
+        # omega update — use effective (possibly noise-adaptive) gain
+        raw_omega = gamma_omega_eff * np.outer(dz_dphase * We, inp)
         omega += dt * raw_omega
         norms = np.linalg.norm(omega, axis=1, keepdims=True)
         scale = np.where(norms > omega_max, omega_max / (norms + 1e-12), 1.0)
         omega *= scale
 
-        # b update
-        raw_b = gamma_b * (dz_dphase * We)
+        # b update — use effective (possibly noise-adaptive) gain
+        raw_b = gamma_b_eff * (dz_dphase * We)
         b += dt * raw_b
         b = b % (2 * np.pi)
 
