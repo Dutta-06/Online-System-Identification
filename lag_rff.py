@@ -65,14 +65,36 @@ def run_lag_rff(n=2, T=30, dt=0.001,
 
         x_ref = xm[:, i]
         u = -5.0 * (x - x_ref)
+        
+        # 1. State derivative estimation (simple backward difference)
+        if i == 0:
+            x_dot_hat = np.zeros(n)
+        else:
+            x_dot_hat = (x - x_prev) / dt
+            
+        # 2. Known dynamics (A*x in our system is 0, so just 0)
+        f_known = np.zeros(n)
+        
+        # 3. Previous control input (or current if i=0)
+        u_applied = u_prev if i > 0 else u
+        
+        # 4. Compute non-oracle e_id
+        if i == 0:
+             e_id = np.zeros(n) # Filter transient
+        else:
+             e_id = x_dot_hat - f_known - u_applied - f_hat_prev
+             
+        # Store for next timestep
+        x_prev = x.copy()
+        u_prev = u.copy()
+        f_hat_prev = f_hat.copy()
 
         t0 = time.perf_counter()
         
         # 1. Forward pass
         z, dz_dphase, inp = rff_features_and_derivs(x, t, omega, b, n_features)
         
-        # 2. Compute error
-        e_id = f_actual - f_hat
+        # 2. Non-oracle error is already computed above as e_id
 
         # 3. Readout weights update
         W_out += dt * lr * np.outer(z, e_id)

@@ -68,7 +68,6 @@ def run_proposed_sysid(n=2, T=30, dt=0.001, use_shift=False, shift_time=15.0):
 
         x_ref = xm[:, i]
         xm_dot = (xm[:, i+1] - xm[:, i]) / dt if i < N-2 else np.zeros(n)
-        e = x - x_ref
 
         # Control Law
         u_vec = ctrl.control_law(x, x_ref, xm_dot, W, c, sigma)
@@ -80,10 +79,10 @@ def run_proposed_sysid(n=2, T=30, dt=0.001, use_shift=False, shift_time=15.0):
         id_history.append(id_err)
         t_history.append(t)
 
-        # The adaptation laws are driven strictly by the tracking error e = x - xm,
-        # augmented by the Concurrent Learning term (k_cl * e_id) to guarantee 
-        # both stability (V_dot <= 0) and parameter convergence.
-        # Here we use practical state-derivative estimation instead of oracle f_actual:
+        # The adaptation laws are driven strictly by the identification error (e_id)
+        # to ensure an apples-to-apples comparison with sysid baselines like SINDy and RFF.
+        # This isolates the geometry adaptation mechanism from the closed-loop tracking setup.
+        # We use practical state-derivative estimation instead of oracle f_actual:
         # e_id = hat{x_dot} - f_known - u - f_hat
         
         # 1. State derivative estimation (simple backward difference)
@@ -110,8 +109,8 @@ def run_proposed_sysid(n=2, T=30, dt=0.001, use_shift=False, shift_time=15.0):
         f_hat_prev = f_hat.copy()
 
         t0 = time.perf_counter()
-        # Pass e_id as the primary tracking error 'e' to force pure gradient descent
-        # on the identification error, as k_cl is set to 0.0 in this sysid script.
+        # Pass e_id as the primary error argument to force pure gradient descent
+        # on the identification error (parameter estimation mode).
         W_dot, c_dot, sigma_dot = ctrl.adaptation_laws(x, e_id, W, c, sigma)
         W     = W     + dt * W_dot
         c     = c     + dt * c_dot.reshape(m, n)

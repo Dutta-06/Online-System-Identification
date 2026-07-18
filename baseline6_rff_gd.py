@@ -69,8 +69,30 @@ def run_rff_gd(n=2, T=30, dt=0.001,
         x_ref = xm[:, i]
         u = -5.0 * (x - x_ref)
 
+        # 1. State derivative estimation (simple backward difference)
+        if i == 0:
+            x_dot_hat = np.zeros(n)
+        else:
+            x_dot_hat = (x - x_prev) / dt
+            
+        # 2. Known dynamics (A*x in our system is 0, so just 0)
+        f_known = np.zeros(n)
+        
+        # 3. Previous control input (or current if i=0)
+        u_applied = u_prev if i > 0 else u
+        
+        # 4. Compute non-oracle e_id
+        if i == 0:
+             e_id = np.zeros(n) # Filter transient
+        else:
+             e_id = x_dot_hat - f_known - u_applied - f_hat_prev
+             
+        # Store for next timestep
+        x_prev = x.copy()
+        u_prev = u.copy()
+        f_hat_prev = f_hat.copy()
+
         phi = rff_features(x, t, omega, b, n_features)   # (n_features,)
-        e_id = f_actual - f_hat                            # (n,)
 
         # Gradient descent: identical structure to proposed W_dot = gamma_W * outer(phi, e_id)
         # W_out shape: (n_features, n)
