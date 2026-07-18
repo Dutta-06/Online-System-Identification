@@ -12,7 +12,8 @@ METHODS = {
     'Koopman DMD':     ('#00BCD4', 'koopman'),
     'ESN':             ('#FF5722', 'esn'),
     'NARX':            ('#607D8B', 'narx'),
-    # 'RFF (Fixed)':     ('#795548', 'rff'), # Moved to future scope
+    'RFF (Fixed)':     ('#795548', 'rff_gd'),
+    'RFF + Proposed':  ('#FFEB3B', 'lag_rff'),
 }
 
 DIMS = {'n=2 (Van der Pol)': 'n2',

@@ -38,8 +38,7 @@ ctrl = AdaptiveController(
     m=m, n=n, ke=ke,
     gamma_W=500.0, gamma_c=50.0, gamma_sigma=10.0,
     W_max=5000.0, c_max=50.0,  # Massively increased c_max bounds!
-    sigma_min=0.1, sigma_max=10.0, delta_min=0.05
-)
+    sigma_min=0.1, sigma_max=10.0, delta_min=0.05, k_cl=5.0)
 
 x_history = np.zeros((2, N))
 c_history = []
@@ -61,10 +60,27 @@ for i in range(N-1):
     u_vec = ctrl.control_law(x, x_ref, xm_dot, W, c, sigma)
     f_hat = ctrl.kernel.f_hat(x, W, c, sigma)
     
-    e_id = f_actual - f_hat
-    e_history.append(np.linalg.norm(e_id))
+    # Non-oracle state-derivative estimation for CL adaptation
+    if i == 0:
+        x_dot_hat = np.zeros(n)
+    else:
+        x_dot_hat = (x - x_prev) / dt
+
+    f_known = np.zeros(n)
+    u_applied = u_prev if i > 0 else u_vec
+
+    if i == 0:
+        e_id = np.zeros(n)
+    else:
+        e_id = x_dot_hat - f_known - u_applied - f_hat_prev
+
+    x_prev = x.copy()
+    u_prev = u_vec.copy()
+    f_hat_prev = f_hat.copy()
     
-    W_dot, c_dot, sigma_dot = ctrl.adaptation_laws(x, e_id, W, c, sigma)
+    e_history.append(np.linalg.norm(f_actual - f_hat))
+    
+    W_dot, c_dot, sigma_dot = ctrl.adaptation_laws(x, e, W, c, sigma, e_id=e_id)
     W = W + dt * W_dot
     c = c + dt * c_dot.reshape(m, n)
     sigma = sigma + dt * sigma_dot

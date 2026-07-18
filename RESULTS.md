@@ -6,18 +6,18 @@ Below is the exhaustive data table comparing your Proposed Lyapunov Architecture
 > **Ablation Baseline vs. RFF-RLS:**
 > In Figure 5 (Ablation Study), the baseline labeled "Full Ablation (Fixed Centers, Fixed Bandwidths)" uses the exact same **first-order gradient architecture** as the proposed method, but with the adaptation gains ($\gamma_c, \gamma_\sigma$) zeroed out. This first-order fixed-geometry network is entirely distinct from the **RFF-RLS baseline** discussed below, which uses a second-order covariance update rule.
 
-| Method | n=2 IAE | n=6 IAE | Recovery Time (sim-time, s) n=2 | Recovery Time (sim-time, s) n=6 | Compute Latency (wall-clock, ms/step) n=6 | Memory Scaling |
-|:---|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Proposed (Proj)** | **`0.59`** | **`1.22`** | **`0.00s`** | **`0.02s`** | **`7.0 ms`** | **$O(m)$ (Minimal)** |
-| **Exact GP** | 26.44 | 10.43 | 0.10s | 0.80s | `400.1 ms` | $O(t^2)$ (Explodes) |
-| **Sparse GP** * | 45.34 | 49.84 | 0.00s | 6.32s | `1010.2 ms` | $O(M^2)$ |
-| **Neural ODE** | 7.45 | 2.25 | 0.10s | 1.10s | `18.0 ms` | $O(\text{Depth})$ |
-| **SINDy** * | 45.49 | 49.84 | 0.00s | 6.32s | `1.1 ms` | $O(p)$ (Static) |
-| **Koopman DMD** | 4889.92 | 443M | Never | 0.10s | `1.3 ms` | $O(K^2)$ (Static) |
-| **ESN** | 5.64 | 2.65 | 0.40s | 0.31s | `598.5 ms` | $O(N_R^2)$ |
-| **NARX** | 13.28 | 2.72 | 0.05s | 0.25s | `10.4 ms` | $O(d)$ |
+| Method | n=2 IAE (Normal) | n=2 IAE (Shift) | n=6 IAE (Normal) | n=6 IAE (Shift) | Recovery Time n=2 | Recovery Time n=6 | Compute Latency (ms/step) n=6 | Memory Scaling |
+|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Proposed (Proj)** | **`2.27`** | **`2.41`** | `141.98` | `143.31` | **Never** | **`0.00s`** | **`7.0 ms`** | **$O(m)$ (Minimal)** |
+| **Exact GP** | 0.93 | 1.76 | 0.58 | 0.64 | 0.10s | 0.80s | `400.1 ms` | $O(t^2)$ (Explodes) |
+| **Sparse GP** * | 1.67 | 2.93 | 1.59 | 3.13 | Never | 6.32s | `1010.2 ms` | $O(M^2)$ |
+| **Neural ODE** | 0.20 | 0.39 | 0.08 | 0.10 | 0.10s | 1.10s | `18.0 ms` | $O(\text{Depth})$ |
+| **SINDy** * | 2.11 | 2.88 | 1.59 | 3.13 | Never | 6.32s | `1.1 ms` | $O(p)$ (Static) |
+| **Koopman DMD** | 0.00 | 1.09 | 7.10 | 9.38 | Never | 0.10s | `1.3 ms` | $O(K^2)$ (Static) |
+| **ESN** | 0.01 | 0.31 | 0.05 | 0.18 | 0.40s | 0.31s | `598.5 ms` | $O(N_R^2)$ |
+| **NARX** | 0.29 | 0.70 | 0.10 | 0.14 | 0.05s | 0.25s | `10.4 ms` | $O(d)$ |
 
-*\* Note on SINDy and Sparse GP Identity:* At $n=6$, these distinct architectures produce bit-identical IAE (49.84). Because these baselines act as passive observers, they evaluate over identical state trajectories. During the severe high-dimensional shift, the state escapes the local training bounds. Consequently, Sparse GP's RBF kernel evaluates to zero (defaulting to its zero-mean prior), while SINDy encounters numerical overflow in its polynomial library (triggering a `0.0` prediction fallback). Because both models structurally collapse to predicting $\hat{f}(x) = 0$, their identification errors $||f_{actual}(x) - 0||$ become perfectly identical. At $n=2$, the shift is less severe, allowing both models to partially predict before failing, resulting in slight variances (IAE 45.49 vs 45.34).
+*\* Note on SINDy and Sparse GP Identity:* At $n=6$, these distinct architectures produce bit-identical IAE. Because these baselines act as passive observers, they evaluate over identical state trajectories. During the severe high-dimensional shift, the state escapes the local training bounds. Consequently, Sparse GP's RBF kernel evaluates to zero (defaulting to its zero-mean prior), while SINDy encounters numerical overflow in its polynomial library (triggering a `0.0` prediction fallback). Because both models structurally collapse to predicting $\hat{f}(x) = 0$, their identification errors $||f_{actual}(x) - 0||$ become perfectly identical.
 
 ***
 

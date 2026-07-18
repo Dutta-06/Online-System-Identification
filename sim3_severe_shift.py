@@ -34,8 +34,7 @@ def run_proposed_severe(T=30, dt=0.001, shift_time=15.0):
         m=m, n=n, ke=ke,
         gamma_W=500.0, gamma_c=100.0, gamma_sigma=50.0,
         W_max=50.0, c_max=5.0,
-        sigma_min=0.1, sigma_max=5.0, delta_min=0.05
-    )
+        sigma_min=0.1, sigma_max=5.0, delta_min=0.05, k_cl=5.0)
     
     t_eval, xm = generate_reference(plant_fn, x0, T, dt)
     N = t_eval.shape[0]
@@ -51,14 +50,32 @@ def run_proposed_severe(T=30, dt=0.001, shift_time=15.0):
         
         x_ref = xm[:, i]
         xm_dot = (xm[:, i+1] - xm[:, i]) / dt if i < N-2 else np.zeros(n)
+        e = x - x_ref
         
         u_vec = ctrl.control_law(x, x_ref, xm_dot, W, c, sigma)
         f_hat = ctrl.kernel.f_hat(x, W, c, sigma)
         
-        e_id = f_actual - f_hat
-        id_history.append(np.linalg.norm(e_id))
+        # Non-oracle state-derivative estimation for CL adaptation
+        if i == 0:
+            x_dot_hat = np.zeros(n)
+        else:
+            x_dot_hat = (x - x_prev) / dt
+
+        f_known = np.zeros(n)
+        u_applied = u_prev if i > 0 else u_vec
+
+        if i == 0:
+            e_id = np.zeros(n)
+        else:
+            e_id = x_dot_hat - f_known - u_applied - f_hat_prev
+
+        x_prev = x.copy()
+        u_prev = u_vec.copy()
+        f_hat_prev = f_hat.copy()
         
-        W_dot, c_dot, sigma_dot = ctrl.adaptation_laws(x, e_id, W, c, sigma)
+        id_history.append(np.linalg.norm(f_actual - f_hat))
+        
+        W_dot, c_dot, sigma_dot = ctrl.adaptation_laws(x, e, W, c, sigma, e_id=e_id)
         W = W + dt * W_dot
         c = c + dt * c_dot.reshape(m, n)
         sigma = sigma + dt * sigma_dot

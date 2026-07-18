@@ -30,8 +30,7 @@ def run_proposed_sysid(n=2, T=30, dt=0.001, use_shift=False, shift_time=15.0):
             m=m, n=n, ke=ke,
             gamma_W=500.0, gamma_c=100.0, gamma_sigma=50.0,
             W_max=50.0, c_max=5.0,
-            sigma_min=0.1, sigma_max=5.0, delta_min=0.05
-        )
+            sigma_min=0.1, sigma_max=5.0, delta_min=0.05, k_cl=5.0)
     else:
         plant_fn = coupled_duffing
         x0 = [1.0, 0.0, -1.0, 0.5, 0.5, -0.5]
@@ -45,8 +44,7 @@ def run_proposed_sysid(n=2, T=30, dt=0.001, use_shift=False, shift_time=15.0):
             m=m, n=n, ke=ke,
             gamma_W=300.0, gamma_c=50.0, gamma_sigma=10.0,
             W_max=200.0, c_max=10.0,
-            sigma_min=0.3, sigma_max=8.0, delta_min=0.1
-        )
+            sigma_min=0.3, sigma_max=8.0, delta_min=0.1, k_cl=5.0)
 
     t_eval, xm = generate_reference(plant_fn, x0, T, dt)
     N = t_eval.shape[0]
@@ -86,15 +84,28 @@ def run_proposed_sysid(n=2, T=30, dt=0.001, use_shift=False, shift_time=15.0):
         id_history.append(id_err)
         t_history.append(t)
 
-        # For System Identification, we drive the adaptation laws using the 
-        # identification error (f_actual - f_hat) rather than tracking error (x - xm).
-        # This turns the Lyapunov update (gamma * phi * e^T) into a direct 
-        # Gradient Descent update on the function approximation error!
-        e_id = f_actual - f_hat
+        # Non-oracle state-derivative estimation for CL adaptation
+        # e_id = hat{x_dot} - f_known - u_prev - f_hat_prev
+        if i == 0:
+            x_dot_hat = np.zeros(n)
+        else:
+            x_dot_hat = (x - x_prev) / dt
+
+        f_known = np.zeros(n)
+        u_applied = u_prev if i > 0 else u_vec
+
+        if i == 0:
+            e_id = np.zeros(n)
+        else:
+            e_id = x_dot_hat - f_known - u_applied - f_hat_prev
+
+        x_prev = x.copy()
+        u_prev = u_vec.copy()
+        f_hat_prev = f_hat.copy()
 
         # Adaptation Laws
         t0 = time.perf_counter()
-        W_dot, c_dot, sigma_dot = ctrl.adaptation_laws(x, e_id, W, c, sigma)
+        W_dot, c_dot, sigma_dot = ctrl.adaptation_laws(x, e, W, c, sigma, e_id=e_id)
         W     = W     + dt * W_dot
         c     = c     + dt * c_dot.reshape(m, n)
         sigma = sigma + dt * sigma_dot
