@@ -21,21 +21,22 @@ def rff_features_and_derivs(x, t, omega, b, n_features):
 def run_lag_rff(n=2, T=30, dt=0.001,
                 use_shift=False, shift_time=15.0,
                 n_features=54, lr=500.0,
-                gamma_omega=0.1, gamma_b=0.1,
+                gamma_omega=None, gamma_b=None,
                 omega_max=5.0):
+    if gamma_omega is None:
+        gamma_omega = 0.005 if n == 2 else 0.1
+    if gamma_b is None:
+        gamma_b = 0.005 if n == 2 else 0.1
+
     if n == 2:
         plant_fn = vanderpol
         x0 = [2.0, 0.0]
         f_true_fn = f_true_vdp
-        gamma_omega = 0.01  # conservative gains for n=2
-        gamma_b = 0.01
     else:
         plant_fn = coupled_duffing
         x0 = [1.0, 0.0, -1.0, 0.5, 0.5, -0.5]
         f_true_fn = f_true_duffing6d
         n_features = 125 * n
-        gamma_omega = 0.1   # tuned gains for n=6
-        gamma_b = 0.1
 
     t_eval, xm = generate_reference(plant_fn, x0, T, dt)
     N = t_eval.shape[0]
