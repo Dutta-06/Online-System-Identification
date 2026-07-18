@@ -22,7 +22,7 @@ def run_lag_rff(n=2, T=30, dt=0.001,
                 use_shift=False, shift_time=15.0,
                 n_features=54, lr=500.0,
                 gamma_omega=None, gamma_b=None,
-                omega_max=5.0):
+                omega_max=5.0, x0_override=None):
     if gamma_omega is None:
         gamma_omega = 0.005 if n == 2 else 0.1
     if gamma_b is None:
@@ -30,7 +30,7 @@ def run_lag_rff(n=2, T=30, dt=0.001,
 
     if n == 2:
         plant_fn = vanderpol
-        x0 = [2.0, 0.0]
+        x0 = [2.0, 0.0] if x0_override is None else x0_override
         f_true_fn = f_true_vdp
     else:
         plant_fn = coupled_duffing

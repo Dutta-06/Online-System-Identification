@@ -10,16 +10,16 @@ def main():
     pre_shift_ss_iae = [0.019769, 0.019730, 0.019682, 0.019540, 0.019310, 0.019447, 0.019528]
     
     fig, ax = plt.subplots(figsize=(8, 5))
-    ax.plot(gammas, pre_shift_ss_iae, marker='o', linestyle='-', color='#9C27B0', label='Validation SS IAE ($t \\in [0, 15]$)', linewidth=2, markersize=8)
+    ax.plot(gammas, pre_shift_ss_iae, marker='o', linestyle='-', color='#9C27B0', label='Pre-Shift SS IAE ($t \\in [0, 15]$)', linewidth=2, markersize=8)
     
     # Highlight the minimum
     min_idx = pre_shift_ss_iae.index(min(pre_shift_ss_iae))
-    ax.plot(gammas[min_idx], pre_shift_ss_iae[min_idx], marker='*', color='red', markersize=15, label=f'Selected Optimal $\\gamma$={gammas[min_idx]}')
+    ax.plot(gammas[min_idx], pre_shift_ss_iae[min_idx], marker='*', color='red', markersize=15, label=f'Optimal $\\gamma$={gammas[min_idx]} for this trajectory')
 
     ax.set_xscale('log')
     ax.set_xlabel(r'Geometry Adaptation Gain ($\gamma$)', fontsize=12)
-    ax.set_ylabel('Pre-Shift Steady-State IAE (Validation Error)', fontsize=12)
-    ax.set_title('Cross-Validation of Adaptation Gain on Normal Trajectory ($n=2$)', fontsize=13, fontweight='bold')
+    ax.set_ylabel('Pre-Shift Steady-State IAE', fontsize=12)
+    ax.set_title('Within-Trajectory Time-Split on Normal Segment ($n=2$)', fontsize=13, fontweight='bold')
     
     ax.grid(True, which='both', linestyle=':', alpha=0.6)
     ax.legend(fontsize=10)
